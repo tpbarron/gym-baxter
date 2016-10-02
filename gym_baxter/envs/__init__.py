@@ -1,0 +1,2 @@
+from gym_baxter.envs.baxter_reacher_env import BaxterReacherEnv
+from gym_baxter.envs.baxter_avoider_env import BaxterAvoiderEnv

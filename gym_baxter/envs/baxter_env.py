@@ -12,20 +12,24 @@ import baxter_interface
 from baxter_examples.cfg import JointSpringsExampleConfig
 from baxter_interface import CHECK_VERSION
 
+import baxter_utils as bu
 
 class BaxterEnv(gym.Env):
     """
     The connection with the Baxter or Gazebo must be initialized before using
     this environment
+
+    These environments require the usage of a modified Limb class to get
+    the states of each joint.
     """
 
-    RIGHT_LIMB = "right"
-    LEFT_LIMB = "left"
-    BOTH_LIMBS = "both"
-
-    TORQUE = "torque"
-    VELOCITY = "velocity"
-    POSITION = "position"
+    # RIGHT_LIMB = "right"
+    # LEFT_LIMB = "left"
+    # BOTH_LIMBS = "both"
+    #
+    # TORQUE = "torque"
+    # VELOCITY = "velocity"
+    # POSITION = "position"
 
     def __init__(self, timesteps, sphere, control=None, limbs=None):
         print("Initializing node... ")
@@ -34,11 +38,11 @@ class BaxterEnv(gym.Env):
         self.timesteps = timesteps
 
         if control == None:
-            control = BaxterEnv.POSITION
+            control = bu.POSITION
         self.control = control
 
         if limbs == None:
-            limbs = BaxterEnv.BOTH_LIMBS
+            limbs = bu.BOTH_LIMBS
         self.limbs = limbs
 
         # set control rate
@@ -50,22 +54,22 @@ class BaxterEnv(gym.Env):
         # for safety purposes, set the control rate command timeout.
         # if the specified number of command cycles are missed, the robot
         # will timeout and disable
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
-            self.llimb = baxter_interface.Limb(BaxterEnv.LEFT_LIMB)
-            self.rlimb = baxter_interface.Limb(BaxterEnv.RIGHT_LIMB)
+        if (self.limbs == bu.BOTH_LIMBS):
+            self.llimb = baxter_interface.Limb(bu.LEFT_LIMB_NAME)
+            self.rlimb = baxter_interface.Limb(bu.RIGHT_LIMB_NAME)
             self.llimb.set_command_timeout((1.0 / self.rate) * self.missed_cmds)
             self.rlimb.set_command_timeout((1.0 / self.rate) * self.missed_cmds)
             # robot state
             self.joint_space = 2*len(self.llimb.joint_angles())
             self.state = np.zeros(self.joint_space)
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
-            self.llimb = baxter_interface.Limb(BaxterEnv.LEFT_LIMB)
+        elif (self.limbs == bu.LEFT_LIMB):
+            self.llimb = baxter_interface.Limb(bu.LEFT_LIMB_NAME)
             self.llimb.set_command_timeout((1.0 / self.rate) * self.missed_cmds)
             # robot state
             self.joint_space = len(self.llimb.joint_angles())
             self.state = np.zeros(self.joint_space)
-        elif (self.limbs == BaxterEnv.RIGHT_LIMB):
-            self.rlimb = baxter_interface.Limb(BaxterEnv.RIGHT_LIMB)
+        elif (self.limbs == bu.RIGHT_LIMB):
+            self.rlimb = baxter_interface.Limb(bu.RIGHT_LIMB_NAME)
             self.rlimb.set_command_timeout((1.0 / self.rate) * self.missed_cmds)
             # robot state
             self.joint_space = len(self.rlimb.joint_angles())
@@ -115,12 +119,12 @@ class BaxterEnv(gym.Env):
         Switches out of joint torque mode to exit cleanly
         """
         print("Exiting Baxter env...")
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
+        if (self.limbs == bu.BOTH_LIMBS):
             self.llimb.exit_control_mode()
             self.rlimb.exit_control_mode()
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
+        elif (self.limbs == bu.LEFT_LIMB):
             self.llimb.exit_control_mode()
-        elif (self.limbs == BaxterEnv.RIGHT_LIMB):
+        elif (self.limbs == bu.RIGHT_LIMB):
             self.rlimb.exit_control_mode()
 
         if not self._init_state and self._rs.state().enabled:
@@ -129,67 +133,71 @@ class BaxterEnv(gym.Env):
 
 
     def get_joint_angles(self):
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
+        if (self.limbs == bu.BOTH_LIMBS):
             ljointdict = self.llimb.joint_angles()
             rjointdict = self.rlimb.joint_angles()
-            ljointangles = [ljointdict[x] for x in self.llimb._joint_names[BaxterEnv.LEFT_LIMB]]
-            rjointangles = [rjointdict[x] for x in self.rlimb._joint_names[BaxterEnv.RIGHT_LIMB]]
+            ljointangles = [ljointdict[x] for x in self.llimb._joint_names[bu.LEFT_LIMB_NAME]]
+            rjointangles = [rjointdict[x] for x in self.rlimb._joint_names[bu.RIGHT_LIMB_NAME]]
             return np.array(ljointangles + rjointangles)
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
+        elif (self.limbs == bu.LEFT_LIMB):
             ljointdict = self.llimb.joint_angles()
-            ljointangles = [ljointdict[x] for x in self.llimb._joint_names[BaxterEnv.LEFT_LIMB]]
+            ljointangles = [ljointdict[x] for x in self.llimb._joint_names[bu.LEFT_LIMB_NAME]]
             return np.array(ljointangles)
-        elif (self.limbs == BaxterEnv.RIGHT_LIMB):
+        elif (self.limbs == bu.RIGHT_LIMB):
             rjointdict = self.rlimb.joint_angles()
-            rjointangles = [rjointdict[x] for x in self.rlimb._joint_names[BaxterEnv.RIGHT_LIMB]]
+            rjointangles = [rjointdict[x] for x in self.rlimb._joint_names[bu.RIGHT_LIMB_NAME]]
             return np.array(rjointangles)
 
 
     def get_endeff_position(self):
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
+        if (self.limbs == bu.BOTH_LIMBS):
             return np.array(list(self.llimb.endpoint_pose()['position']) +
                         list(self.rlimb.endpoint_pose()['position']))
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
+        elif (self.limbs == bu.LEFT_LIMB):
             return np.array(list(self.llimb.endpoint_pose()['position']))
-        elif (self.limbs == BaxterEnv.RIGHT_LIMB):
+        elif (self.limbs == bu.RIGHT_LIMB):
             return np.array(list(self.rlimb.endpoint_pose()['position']))
 
 
     def get_joint_action_dict(self, action):
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
-            lkeys = self.llimb._joint_names[BaxterEnv.LEFT_LIMB]
+        if (self.limbs == bu.BOTH_LIMBS):
+            lkeys = self.llimb._joint_names[bu.LEFT_LIMB_NAME]
             ldict = dict(zip(lkeys, action.tolist()[:self.joint_space/2]))
-            rkeys = self.rlimb._joint_names[BaxterEnv.RIGHT_LIMB]
+            rkeys = self.rlimb._joint_names[bu.RIGHT_LIMB_NAME]
             rdict = dict(zip(rkeys, action.tolist()[self.joint_space/2:]))
             return ldict, rdict
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
-            lkeys = self.llimb._joint_names[BaxterEnv.LEFT_LIMB]
+        elif (self.limbs == bu.LEFT_LIMB):
+            lkeys = self.llimb._joint_names[bu.LEFT_LIMB_NAME]
             ldict = dict(zip(lkeys, action.tolist()[:self.joint_space]))
             return ldict
-        elif (self.limbs == BaxterEnv.RIGHT_LIMB):
-            rkeys = self.rlimb._joint_names[BaxterEnv.RIGHT_LIMB]
+        elif (self.limbs == bu.RIGHT_LIMB):
+            rkeys = self.rlimb._joint_names[bu.RIGHT_LIMB_NAME]
             rdict = dict(zip(rkeys, action.tolist()[:self.joint_space]))
             return rdict
 
 
-    def reset(self):
-        if (self.limbs == BaxterEnv.BOTH_LIMBS):
+    def _reset(self):
+        if (self.limbs == bu.BOTH_LIMBS):
             self.llimb.move_to_neutral()
             self.rlimb.move_to_neutral()
             self.state = self.get_joint_angles()
             return self.state
-        elif (self.limbs == BaxterEnv.LEFT_LIMB):
+        elif (self.limbs == bu.LEFT_LIMB):
             self.llimb.move_to_neutral()
             self.state = self.get_joint_angles()
             return self.state
-        if (self.limbs == BaxterEnv.RIGHT_LIMB):
+        if (self.limbs == bu.RIGHT_LIMB):
             self.rlimb.move_to_neutral()
             self.state = self.get_joint_angles()
             return self.state
 
 
-    def step(self, action):
+    def _step(self, action):
         raise NotImplementedError
+
+
+    def _render(self, mode='human', close=False):
+        pass
 
 
     @property
